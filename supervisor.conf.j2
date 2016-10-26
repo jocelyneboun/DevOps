@@ -1,0 +1,7 @@
+[program:gunicorn]
+command=/home/supersnake/venv/bin/gunicorn wsgi:app -c /etc/gunicorn/gunicorn.conf --pythonpath /var/www/supersnake
+directory=/var/www/supersnake
+environment=PATH="/var/www/bin"
+autorestart=true
+autostart=true
+redirect_stderr=true
