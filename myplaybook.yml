@@ -1,0 +1,95 @@
+---
+- hosts: all
+  remote_user: root
+  sudo: true
+  tasks:
+    
+    - name: ensure repo is checked out
+      git: repo=https://github.com/jocelyneboun/DevOps.git dest=/var/www/supersnake accept_hostkey=yes
+      sudo: yes
+
+    - name: install nginx
+      sudo: yes
+      apt: pkg=nginx state=latest update_cache=yes cache_valid_time=3600
+      notify:
+        - start nginx
+
+    - name: install sqlite
+      apt: pkg=sqlite state=latest update_cache=yes cache_valid_time=3600
+      notify:
+        - start sqlite
+
+    - name: install supervisord
+      sudo: yes
+      apt: name=supervisor state=installed 
+      
+      notify:
+        - start supervisord
+
+    - name: install gunicorn
+      apt: pkg=gunicorn state=installed update_cache=yes cache_valid_time=3600
+      notify:
+        - start gunicorn
+
+    - name: install python-pip
+      apt: pkg=python-pip state=installed update_cache=yes cache_valid_time=3600
+      notify:
+        - start python-pip
+
+##python-virtual-environnement
+    - name: Install virtualenv 
+      pip: name=virtualenv
+
+    - name: Create the virtualenv
+      command: virtualenv /home/supersnake/venv creates=/home/supersnake/venv/bin/activate
+      sudo: yes  
+  
+
+    - name: ensure supervisor is running
+      service: name=supervisor state=started enabled=yes
+
+##nginx
+    - name: Create nginx virtual host for application
+      template: src=templates/nginx.conf dest=/etc/nginx/sites-available/app
+      notify: restart nginx
+
+    - name: Enable virtual host
+      file: src=/etc/nginx/sites-available/app dest=/etc/nginx/sites-enabled/app state=link
+
+
+
+##gunicorn
+    - name: Create the Gunicorn config directory
+      file: path=/etc/gunicorn state=directory 
+
+    - name: Create the Gunicorn config file in /etc/gunicorn/
+      template: src=templates/gunicorn.conf.j2 dest=/etc/gunicorn/gunicorn.conf
+
+    - name: Create the Gunicorn log directory
+      file: path=/var/log/gunicorn state=directory 
+
+    - name: Create the Supervisor config file for Gunicorn
+      template: src=templates/supervisor.conf.j2 dest=/etc/supervisor/conf.d/gunicorn.conf
+
+  ##  - name: Start Gunicorn with supervisord
+  ##    supervisorctl: name=gunicorn state=started
+  ##    sudo: yes
+     
+
+
+
+
+
+  handlers:
+    - name: restart nginx
+      service: name=nginx state=restarted
+    - name: restart sqlite
+      service: name=sqlite state=restarted
+    - name: restart supervisor
+      service: name=supervisor state=restarted
+    - name: Restart Gunicorn
+      supervisorctl: name=gunicorn state=restarted
+    - name: restart flask app
+      supervisorctl: name=app state=restarted
+    
+
